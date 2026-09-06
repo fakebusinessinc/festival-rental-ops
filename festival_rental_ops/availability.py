@@ -1,14 +1,22 @@
+import pandas as pd
+
+items = ['radio', 'headset']
 
 class ExistingRental:
     
-    def __init__(self, requested_quantity, start_date, end_date, status):
+    def __init__(self, item, requested_quantity, start_date, end_date, status):
+        self.item = item
         self.requested_quantity = requested_quantity
         self.start_date = start_date
         self.end_date = end_date
         self.status = status
+        
+def check_availability(item, inventory, requested_quantity, start_date, end_date, existing_rentals):
 
-def check_availability(inventory, requested_quantity, start_date, end_date, existing_rentals):
-
+    # Checks if the item is actually present, which I added to the items list
+    if item not in items:
+        raise ValueError("Requested item was not found")
+    
     # Checks if the requested_quantity is an integer or float
     if isinstance(requested_quantity, int):
         is_whole = True
@@ -30,15 +38,32 @@ def check_availability(inventory, requested_quantity, start_date, end_date, exis
         raise ValueError("Start date cannot be after the end date")
     
     # Checks if there is overlap between another request and current request
-    available_inventory = inventory
-
-    for request in existing_rentals:
-        if start_date <= request.end_date and request.start_date <= end_date:
-            if request.status == "confirmed":
-                available_inventory -= request.requested_quantity
-            
-    # Checks if the inventory is greater or equal to the requested_quantity
-    if available_inventory >= requested_quantity:
-        return True
-    else:
-        return False
+    overlapping_rentals = []
+    
+    # Now we have a list with the existing rentals that overlap with the request
+    for rental in existing_rentals:
+        if rental.item == item:
+            if start_date <= rental.end_date and rental.start_date <= end_date:
+                overlapping_rentals.append(rental)
+    
+    # Now we have a list of days of the request
+    request_date_range = pd.date_range(start=start_date, end=end_date, freq='D')
+    request_days_list = [d.date() for d in request_date_range]
+    
+    # Loop through days
+    for day in request_days_list:
+        available_inventory = inventory
+        # Within a day, loop through overlapping rentals and extract the days into a list
+        for overlapping_rental in overlapping_rentals:
+            date_range = pd.date_range(start=overlapping_rental.start_date, end=overlapping_rental.end_date, freq='D')
+            days_list = [d.date() for d in date_range]
+            # If the day in the request list exists in the overlapping rentals list, reduce the available inventory by that amount
+            if day in days_list:
+                if overlapping_rental.status == "confirmed":
+                    available_inventory -= overlapping_rental.requested_quantity
+        if available_inventory >= requested_quantity:
+            continue
+        else:
+            return False
+                      
+    return True
