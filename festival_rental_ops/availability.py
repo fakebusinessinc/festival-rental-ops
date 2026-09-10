@@ -1,5 +1,6 @@
 import pandas as pd
 from datetime import date, timedelta
+from exceptions import InventoryIntegrityError
 
 items = ['radio', 'headset']
 
@@ -54,9 +55,6 @@ def check_availability(item, inventory, requested_quantity, start_date, end_date
                 overlapping_rentals.append(rental)
     
     # Now we have a list of days of the request
-    # request_date_range = pd.date_range(start=start_date, end=end_date, freq='D')
-    # request_days_list = [d.date() for d in request_date_range]
-    
     request_days_list = [start_date + timedelta(days = x) for x in range((end_date - start_date).days + 1)]
     
     # Loop through days
@@ -64,13 +62,13 @@ def check_availability(item, inventory, requested_quantity, start_date, end_date
         available_inventory = inventory
         # Within a day, loop through overlapping rentals and extract the days into a list
         for overlapping_rental in overlapping_rentals:
-            # date_range = pd.date_range(start=overlapping_rental.start_date, end=overlapping_rental.end_date, freq='D')
-            # days_list = [d.date() for d in date_range]
             days_list = [overlapping_rental.start_date + timedelta(days = x) for x in range((overlapping_rental.end_date - overlapping_rental.start_date).days + 1)]
             # If the day in the request list exists in the overlapping rentals list, reduce the available inventory by that amount
             if day in days_list:
                 if overlapping_rental.status == "confirmed":
                     available_inventory -= overlapping_rental.requested_quantity
+                    if available_inventory < 0:
+                        raise InventoryIntegrityError(f"{day} has negative inventory of {available_inventory}")
         if available_inventory >= requested_quantity:
             continue
         else:
